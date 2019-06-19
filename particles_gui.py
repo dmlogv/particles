@@ -10,7 +10,7 @@ class ParticleGui(ttk.Frame):
         self.winfo_toplevel().title(self.__class__.__name__)
 
         self.particles = []
-        self.now_moving = False  # Mutex
+        self.now_moving = 0
 
         self.create_widgets()
         self.fill()
@@ -31,7 +31,7 @@ class ParticleGui(ttk.Frame):
 
     def random_move(self, _):
         for particle in self.particles:
-            self.canvas.move(particle, random.randint(-2, 2), random.randint(-2, 2))
+            self.canvas.move(particle, random.randint(-5, 5), random.randint(-5, 5))
 
     def random_position(self, _):
         w, h = self.get_canvas_size()
@@ -41,20 +41,18 @@ class ParticleGui(ttk.Frame):
             self.canvas.move(particle, random.randint(int(-x), int(w - x)), random.randint(int(-y), int(h - y)))
 
     def move_to_pointer(self, event):
-        # Prevent multiple run
-        if self.now_moving:
+        if self.now_moving > 0:
             return
-        
-        self.now_moving = True
 
         target_x = event.x
         target_y = event.y
 
         def move_particle(particle, x, y):
+            self.now_moving += 1
+            # Lock
+            print(self.now_moving)
+
             actual_x, actual_y, _, _ = self.canvas.coords(particle)
-            
-            if actual_x == x and actual_y == y:
-                return 0
             
             dx, dy = x - actual_x, y - actual_y
             dmax = max(abs(dx), abs(dy))
@@ -64,21 +62,14 @@ class ParticleGui(ttk.Frame):
 
             self.canvas.move(particle, magic(dx), magic(dy))
             self.canvas.update()
-
-            return 1
-
-        while True:
-            moved = 0
-            for particle in self.particles:
-                moved += move_particle(particle, target_x, target_y)
-
-            self.after(0)
-
-            if not moved:
-                break
-        
-        self.now_moving = False
             
+            if not(actual_x == x and actual_y == y):
+                self.after(1, move_particle, particle, x, y)
+            
+            self.now_moving -= 1
+
+        for particle in self.particles:
+            self.after(0, move_particle, particle, target_x, target_y)            
 
     def fill(self):
         for _ in range(100):          
